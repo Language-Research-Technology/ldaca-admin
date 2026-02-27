@@ -5,12 +5,14 @@ interface Collection {
   id: string
   name: string
   path: string
+  indexed?: boolean
 }
 
 const apiKey = ref('')
 const collections = ref<Collection[]>([])
 const errorMessage = ref('')
 const statusMessage = ref('')
+const statusType = ref<'success' | 'error'>('success')
 
 const fetchCollections = async () => {
   errorMessage.value = ''
@@ -32,11 +34,18 @@ const fetchCollections = async () => {
     collections.value = data
   } catch (error) {
     errorMessage.value = 'Failed to fetch collections'
+    statusType.value = 'success'
   }
 }
 
 const indexAll = async () => {
   statusMessage.value = ''
+
+  if (collections.value.every(c => c.indexed)) {
+    statusMessage.value = 'All repos have been indexed.'
+    statusType.value = 'success'
+    return
+  }
 
   try {
     const response = await fetch('http://localhost:8080/admin/index/', {
@@ -51,8 +60,11 @@ const indexAll = async () => {
     }
 
     statusMessage.value = 'Indexing started successfully!'
+    statusType.value = 'success'
+    collections.value.forEach(c => c.indexed = true)
   } catch (error) {
     statusMessage.value = 'Indexing failed!'
+    statusType.value = 'error'
   }
 }
 
@@ -72,8 +84,36 @@ const deleteAll = async () => {
     }
 
     statusMessage.value = 'All indexes deleted successfully!'
+    statusType.value = 'success'
   } catch (error) {
     statusMessage.value = 'Delete failed!'
+    statusType.value = 'error'
+  }
+}
+
+const indexCollection = async (collectionId: string, collectionName: string) => {
+  statusMessage.value = ''
+  const collection = collections.value.find(c => c.id === collectionId)
+  if (collection?.indexed) return
+
+  try {
+    const response = await fetch(`http://localhost:8080/admin/index/${encodeURIComponent(collectionId)}`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey.value}`
+      }
+    })
+
+    if (!response.ok) {
+      throw new Error('Index failed')
+    }
+
+    statusMessage.value = `Indexing started for ${collectionName}!`
+    statusType.value = 'success'
+    if (collection) collection.indexed = true
+  } catch (error) {
+    statusMessage.value = `Indexing failed for ${collectionName}!`
+    statusType.value = 'error'
   }
 }
 
@@ -83,20 +123,6 @@ const deleteAll = async () => {
   <div>
     <h1>LDACA Admin</h1>
 
-    <div style="margin-top:20px">
-      <button @click="indexAll">
-        Index All
-      </button>
-
-      <button @click="deleteAll" style="margin-left:10px">
-        Delete All
-      </button>
-    </div>
-
-    <p v-if="statusMessage">
-      {{ statusMessage }}
-    </p>
-    
     <div>
       <input
         v-model="apiKey"
@@ -111,13 +137,42 @@ const deleteAll = async () => {
       {{ errorMessage }}
     </p>
 
-    <ul>
-      <li v-for="collection in collections" :key="collection.id">
-        {{ collection.name }}
-      </li>
-    </ul>
+    <div style="display:flex; justify-content:flex-end; margin-bottom:10px;">
+      <button @click="indexAll">
+        Index All
+      </button>
+
+      <button @click="deleteAll" style="margin-left:10px">
+        Delete All
+      </button>
+    </div>
+
+    <p v-if="statusMessage" :style="{ color: statusType === 'success' ? 'green' : 'red', fontWeight: 'bold' }">
+      {{ statusMessage }}
+    </p>
+
+    <table v-if="collections.length" border="1" cellpadding="5" cellspacing="0" style="margin-top:20px; width: 100%;">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="collection in collections" :key="collection.id">
+          <td>{{ collection.name }}</td>
+          <td style="text-align: center;">
+            <button @click="indexCollection(collection.id, collection.name)"
+                    :disabled="collection.indexed">
+              {{ collection.indexed ? 'Indexed' : 'Index' }}
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
   </div>
 </template>
+
 
 <style scoped>
 input {

@@ -117,6 +117,32 @@ const indexCollection = async (collectionId: string, collectionName: string) => 
   }
 }
 
+const deleteCollection = async (collectionId: string, collectionName: string) => {
+  statusMessage.value = ''
+  
+  try {
+    const response = await fetch(`http://localhost:8080/admin/index/${encodeURIComponent(collectionId)}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${apiKey.value}`
+      }
+    })
+
+    if (!response.ok) {
+      throw new Error('Delete failed')
+    }
+
+    statusMessage.value = `Deleted index for ${collectionName} successfully!`
+    statusType.value = 'success'
+
+    const collection = collections.value.find(c => c.id === collectionId)
+    if (collection) collection.indexed = false
+  } catch (error) {
+    statusMessage.value = `Delete failed for ${collectionName}!`
+    statusType.value = 'error'
+  }
+}
+
 </script>
 
 <template>
@@ -165,6 +191,11 @@ const indexCollection = async (collectionId: string, collectionName: string) => 
             <button @click="indexCollection(collection.id, collection.name)"
                     :disabled="collection.indexed">
               {{ collection.indexed ? 'Indexed' : 'Index' }}
+            </button>
+            <button @click="deleteCollection(collection.id, collection.name)"
+                    :disabled="!collection.indexed"
+                    style="margin-left:5px">
+              Delete
             </button>
           </td>
         </tr>

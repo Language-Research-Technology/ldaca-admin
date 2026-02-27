@@ -14,6 +14,8 @@ const errorMessage = ref('')
 const statusMessage = ref('')
 const statusType = ref<'success' | 'error'>('success')
 
+
+// Fetch available repos from API
 const fetchCollections = async () => {
   errorMessage.value = ''
   collections.value = []
@@ -38,6 +40,8 @@ const fetchCollections = async () => {
   }
 }
 
+
+// Index all fetched repos
 const indexAll = async () => {
   statusMessage.value = ''
 
@@ -68,6 +72,8 @@ const indexAll = async () => {
   }
 }
 
+
+// Delete all fetched repos
 const deleteAll = async () => {
   statusMessage.value = ''
 
@@ -91,6 +97,8 @@ const deleteAll = async () => {
   }
 }
 
+
+// Index specific fetched repos
 const indexCollection = async (collectionId: string, collectionName: string) => {
   statusMessage.value = ''
   const collection = collections.value.find(c => c.id === collectionId)
@@ -117,6 +125,8 @@ const indexCollection = async (collectionId: string, collectionName: string) => 
   }
 }
 
+
+// Delete specific fetched repos
 const deleteCollection = async (collectionId: string, collectionName: string) => {
   statusMessage.value = ''
   

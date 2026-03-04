@@ -14,6 +14,15 @@ const errorMessage = ref('')
 const statusMessage = ref('')
 const statusType = ref<'success' | 'error'>('success')
 
+const getIndexedRepos = (): string[] => {
+  const data = localStorage.getItem('indexedRepos')
+  return data ? JSON.parse(data) : []
+}
+
+const saveIndexedRepos = (ids: string[]) => {
+  localStorage.setItem('indexedRepos', JSON.stringify(ids))
+}
+
 
 // Fetch available repos from API
 const fetchCollections = async () => {
@@ -33,7 +42,11 @@ const fetchCollections = async () => {
     }
 
     const data = await response.json()
-    collections.value = data
+    const indexedRepos = getIndexedRepos()
+    collections.value = data.map((c: Collection) => ({
+      ...c,
+      indexed: indexedRepos.includes(c.id)
+    }))
   } catch (error) {
     errorMessage.value = 'Failed to fetch collections'
     statusType.value = 'success'
@@ -63,6 +76,10 @@ const indexAll = async () => {
       throw new Error('Index failed')
     }
 
+    collections.value.forEach(c => {
+      c.indexed = true
+    })
+    saveIndexedRepos(collections.value.map(c => c.id))
     statusMessage.value = 'Indexing started successfully!'
     statusType.value = 'success'
     collections.value.forEach(c => c.indexed = true)
@@ -89,6 +106,10 @@ const deleteAll = async () => {
       throw new Error('Delete failed')
     }
 
+    saveIndexedRepos([])
+    collections.value.forEach(c => {
+      c.indexed = false
+    })
     statusMessage.value = 'All indexes deleted successfully!'
     statusType.value = 'success'
   } catch (error) {
@@ -118,7 +139,12 @@ const indexCollection = async (collectionId: string, collectionName: string) => 
 
     statusMessage.value = `Indexing started for ${collectionName}!`
     statusType.value = 'success'
-    if (collection) collection.indexed = true
+    if (collection) {
+      collection.indexed = true
+
+      const indexedRepos = getIndexedRepos()
+      saveIndexedRepos([...indexedRepos, collection.id])
+    }
   } catch (error) {
     statusMessage.value = `Indexing failed for ${collectionName}!`
     statusType.value = 'error'
@@ -144,9 +170,10 @@ const deleteCollection = async (collectionId: string, collectionName: string) =>
 
     statusMessage.value = `Deleted index for ${collectionName} successfully!`
     statusType.value = 'success'
-
     const collection = collections.value.find(c => c.id === collectionId)
     if (collection) collection.indexed = false
+    const indexedRepos = getIndexedRepos().filter(id => id !== collectionId)
+    saveIndexedRepos(indexedRepos)
   } catch (error) {
     statusMessage.value = `Delete failed for ${collectionName}!`
     statusType.value = 'error'

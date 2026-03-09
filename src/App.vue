@@ -8,7 +8,8 @@ interface Collection {
   indexed?: boolean
 }
 
-const apiKey = ref('')
+const apiBase = import.meta.env.VITE_API_BASE_URL
+const apiKey = import.meta.env.VITE_API_TOKEN
 const collections = ref<Collection[]>([])
 const errorMessage = ref('')
 const statusMessage = ref('')
@@ -30,10 +31,10 @@ const fetchCollections = async () => {
   collections.value = []
 
   try {
-    const response = await fetch('http://localhost:8080/admin/repository', {
+    const response = await fetch(`${apiBase}/admin/repository`, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${apiKey.value}`
+        'Authorization': `Bearer ${apiKey}`
       }
     })
 
@@ -65,10 +66,10 @@ const indexAll = async () => {
   }
 
   try {
-    const response = await fetch('http://localhost:8080/admin/index/', {
+    const response = await fetch(`${apiBase}/admin/index/`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey.value}`
+        'Authorization': `Bearer ${apiKey}`
       }
     })
 
@@ -95,10 +96,10 @@ const deleteAll = async () => {
   statusMessage.value = ''
 
   try {
-    const response = await fetch('http://localhost:8080/admin/index/', {
+    const response = await fetch(`${apiBase}/admin/index/`, {
       method: 'DELETE',
       headers: {
-        'Authorization': `Bearer ${apiKey.value}`
+        'Authorization': `Bearer ${apiKey}`
       }
     })
 
@@ -126,10 +127,10 @@ const indexCollection = async (collectionId: string, collectionName: string) => 
   if (collection?.indexed) return
 
   try {
-    const response = await fetch(`http://localhost:8080/admin/index/${encodeURIComponent(collectionId)}`, {
+    const response = await fetch(`${apiBase}/admin/index/${encodeURIComponent(collectionId)}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey.value}`
+        'Authorization': `Bearer ${apiKey}`
       }
     })
 
@@ -157,10 +158,10 @@ const deleteCollection = async (collectionId: string, collectionName: string) =>
   statusMessage.value = ''
   
   try {
-    const response = await fetch(`http://localhost:8080/admin/index/${encodeURIComponent(collectionId)}`, {
+    const response = await fetch(`${apiBase}/admin/index/${encodeURIComponent(collectionId)}`, {
       method: 'DELETE',
       headers: {
-        'Authorization': `Bearer ${apiKey.value}`
+        'Authorization': `Bearer ${apiKey}`
       }
     })
 
@@ -186,19 +187,15 @@ const deleteCollection = async (collectionId: string, collectionName: string) =>
   <div>
     <h1>LDACA Admin</h1>
 
+    <p v-if="errorMessage" style="color:red">
+      {{ errorMessage }}
+    </p>
+
     <div>
-      <input
-        v-model="apiKey"
-        placeholder="Enter your API key"
-      />
       <button @click="fetchCollections">
         Load Collections
       </button>
     </div>
-
-    <p v-if="errorMessage" style="color:red">
-      {{ errorMessage }}
-    </p>
 
     <div style="display:flex; justify-content:flex-end; margin-bottom:10px;">
       <button @click="indexAll">

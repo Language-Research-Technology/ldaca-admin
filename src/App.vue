@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { ElTree } from 'element-plus'
 
 interface Collection {
   id: string
   name: string
   path: string
   indexed?: boolean
+  children?: Collection[]
 }
 
 const apiBase = import.meta.env.VITE_API_BASE_URL
@@ -24,6 +26,33 @@ const saveIndexedRepos = (ids: string[]) => {
   localStorage.setItem('indexedRepos', JSON.stringify(ids))
 }
 
+const buildTree = (items: Collection[]): Collection[] => {
+  const map = new Map<string, Collection>()
+  const roots: Collection[] = []
+
+  items.forEach(item => {
+    map.set(item.id, { ...item, children: [] })
+  })
+
+  items.forEach(item => {
+    const parts = item.id.split('/')
+    if (parts.length <= 3) {
+      roots.push(map.get(item.id)!)
+      return
+    }
+
+    const parentId = parts.slice(0, -1).join('/')
+    const parent = map.get(parentId)
+
+    if (parent) {
+      parent.children!.push(map.get(item.id)!)
+    } else {
+      roots.push(map.get(item.id)!)
+    }
+  })
+
+  return roots
+}
 
 // Fetch available repos from API
 const fetchCollections = async () => {
@@ -44,11 +73,13 @@ const fetchCollections = async () => {
 
     const data = await response.json()
     const indexedRepos = getIndexedRepos()
-    collections.value = data.map((c: Collection) => ({
+    const list = data.map((c: Collection) => ({
       ...c,
       indexed: indexedRepos.includes(c.id)
     }))
-  } catch (error) {
+
+    collections.value = buildTree(list)
+      } catch (error) {
     errorMessage.value = 'Failed to fetch collections'
     statusType.value = 'success'
   }
@@ -211,30 +242,31 @@ const deleteCollection = async (collectionId: string, collectionName: string) =>
       {{ statusMessage }}
     </p>
 
-    <table v-if="collections.length" border="1" cellpadding="5" cellspacing="0" style="margin-top:20px; width: 100%;">
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Action</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="collection in collections" :key="collection.id">
-          <td>{{ collection.name }}</td>
-          <td style="text-align: center;">
-            <button @click="indexCollection(collection.id, collection.name)"
-                    :disabled="collection.indexed">
-              {{ collection.indexed ? 'Indexed' : 'Index' }}
-            </button>
-            <button @click="deleteCollection(collection.id, collection.name)"
-                    :disabled="!collection.indexed"
-                    style="margin-left:5px">
-              Delete
-            </button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+    <el-tree
+      v-if="collections.length"
+      :data="collections"
+      node-key="id"
+      default-expand-all
+    >
+      <template #default="{ data }">
+        <span style="margin-right:10px">{{ data.name }}</span>
+
+        <button
+          @click="indexCollection(data.id, data.name)"
+          :disabled="data.indexed"
+        >
+          {{ data.indexed ? 'Indexed' : 'Index' }}
+        </button>
+
+        <button
+          @click="deleteCollection(data.id, data.name)"
+          :disabled="!data.indexed"
+          style="margin-left:5px"
+        >
+          Delete
+        </button>
+      </template>
+    </el-tree>
   </div>
 </template>
 

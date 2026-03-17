@@ -85,6 +85,16 @@ const fetchCollections = async () => {
   }
 }
 
+const markIndexedRecursively = (node: Collection, value: boolean) => {
+  node.indexed = value
+  if (node.children) {
+    node.children.forEach(child => markIndexedRecursively(child, value))
+  }
+}
+
+const getAllIds = (node: Collection): string[] => {
+  return [node.id, ...(node.children ? node.children.flatMap(getAllIds) : [])]
+}
 
 // Index all fetched repos
 const indexAll = async () => {
@@ -108,10 +118,11 @@ const indexAll = async () => {
       throw new Error('Index failed')
     }
 
-    collections.value.forEach(c => {
-      c.indexed = true
-    })
-    saveIndexedRepos(collections.value.map(c => c.id))
+    collections.value.forEach(c => 
+      markIndexedRecursively(c, true)
+    )
+    const allIds = collections.value.flatMap(getAllIds)
+    saveIndexedRepos(allIds)
     statusMessage.value = 'Indexing started successfully!'
     statusType.value = 'success'
     collections.value.forEach(c => c.indexed = true)
@@ -138,10 +149,10 @@ const deleteAll = async () => {
       throw new Error('Delete failed')
     }
 
+    collections.value.forEach(c => 
+      markIndexedRecursively(c, false)
+    )
     saveIndexedRepos([])
-    collections.value.forEach(c => {
-      c.indexed = false
-    })
     statusMessage.value = 'All indexes deleted successfully!'
     statusType.value = 'success'
   } catch (error) {
@@ -150,11 +161,21 @@ const deleteAll = async () => {
   }
 }
 
+const findCollectionById = (id: string, nodes: Collection[]): Collection | undefined => {
+  for (const node of nodes) {
+    if (node.id === id) return node
+    if (node.children) {
+      const found = findCollectionById(id, node.children)
+      if (found) return found
+    }
+  }
+  return undefined
+}
 
 // Index specific fetched repos
 const indexCollection = async (collectionId: string, collectionName: string) => {
   statusMessage.value = ''
-  const collection = collections.value.find(c => c.id === collectionId)
+  const collection = findCollectionById(collectionId, collections.value)
   if (collection?.indexed) return
 
   try {
@@ -172,10 +193,11 @@ const indexCollection = async (collectionId: string, collectionName: string) => 
     statusMessage.value = `Indexing started for ${collectionName}!`
     statusType.value = 'success'
     if (collection) {
-      collection.indexed = true
+      markIndexedRecursively(collection, true)
 
       const indexedRepos = getIndexedRepos()
-      saveIndexedRepos([...indexedRepos, collection.id])
+      const allIds = getAllIds(collection)
+      saveIndexedRepos([...indexedRepos, ...allIds])
     }
   } catch (error) {
     statusMessage.value = `Indexing failed for ${collectionName}!`
@@ -202,10 +224,14 @@ const deleteCollection = async (collectionId: string, collectionName: string) =>
 
     statusMessage.value = `Deleted index for ${collectionName} successfully!`
     statusType.value = 'success'
-    const collection = collections.value.find(c => c.id === collectionId)
-    if (collection) collection.indexed = false
-    const indexedRepos = getIndexedRepos().filter(id => id !== collectionId)
-    saveIndexedRepos(indexedRepos)
+    const collection = findCollectionById(collectionId, collections.value)
+    if (collection) {
+      markIndexedRecursively(collection, false)
+      const allIds = getAllIds(collection)
+      const indexedRepos = getIndexedRepos().filter(id => !allIds.includes(id))
+      saveIndexedRepos(indexedRepos)
+    }
+    
   } catch (error) {
     statusMessage.value = `Delete failed for ${collectionName}!`
     statusType.value = 'error'
@@ -249,22 +275,27 @@ const deleteCollection = async (collectionId: string, collectionName: string) =>
       default-expand-all
     >
       <template #default="{ data }">
-        <span style="margin-right:10px">{{ data.name }}</span>
+        <div class="tree-row">
+          <span class="tree-label">
+            {{ data.name }}
+          </span>
 
-        <button
-          @click="indexCollection(data.id, data.name)"
-          :disabled="data.indexed"
-        >
-          {{ data.indexed ? 'Indexed' : 'Index' }}
-        </button>
+          <span class="tree-actions">
+            <button
+              @click="indexCollection(data.id, data.name)"
+              :disabled="data.indexed"
+            >
+              {{ data.indexed ? 'Indexed' : 'Index' }}
+            </button>
 
-        <button
-          @click="deleteCollection(data.id, data.name)"
-          :disabled="!data.indexed"
-          style="margin-left:5px"
-        >
-          Delete
-        </button>
+            <button
+              @click="deleteCollection(data.id, data.name)"
+              :disabled="!data.indexed"
+            >
+              Delete
+            </button>
+          </span>
+        </div>
       </template>
     </el-tree>
   </div>
@@ -278,5 +309,20 @@ input {
 }
 button {
   padding: 5px 10px;
+}
+.tree-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.tree-label {
+  flex: 1;
+}
+
+.tree-actions {
+  display: flex;
+  gap: 8px;
 }
 </style>

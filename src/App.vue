@@ -284,14 +284,14 @@ const deleteCollection = async (collectionId: string, collectionName: string) =>
 
           <span class="tree-actions">
             <el-button type="success"
-              @click="indexCollection(data.id, data.name)"
+              @click.stop="indexCollection(data.id, data.name)"
               :disabled="data.indexed"
             >
               {{ data.indexed ? 'Indexed' : 'Index' }}
             </el-button>
 
             <el-button type="danger"
-              @click="deleteCollection(data.id, data.name)"
+              @click.stop="deleteCollection(data.id, data.name)"
               :disabled="!data.indexed"
             >
               Delete

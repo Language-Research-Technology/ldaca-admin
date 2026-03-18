@@ -274,7 +274,6 @@ const deleteCollection = async (collectionId: string, collectionName: string) =>
       v-if="collections.length"
       :data="collections"
       node-key="id"
-      default-expand-all
     >
       <template #default="{ data }">
         <div class="tree-row">

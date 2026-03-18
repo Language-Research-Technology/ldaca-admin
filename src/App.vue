@@ -242,26 +242,28 @@ const deleteCollection = async (collectionId: string, collectionName: string) =>
 
 <template>
   <div>
-    <h1>LDACA Admin</h1>
+    <div class="navbar">
+      <span class="navbar-title">LDACA Admin</span>
+    </div>
 
     <p v-if="errorMessage" style="color:red">
       {{ errorMessage }}
     </p>
 
-    <div>
-      <button @click="fetchCollections">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+      <el-button type="primary" @click="fetchCollections">
         Load Collections
-      </button>
-    </div>
+      </el-button>
 
-    <div style="display:flex; justify-content:flex-end; margin-bottom:10px;">
-      <button @click="indexAll">
-        Index All
-      </button>
+      <div style="display:flex; gap:10px;">
+        <el-button type="success" @click="indexAll">
+          Index All
+        </el-button>
 
-      <button @click="deleteAll" style="margin-left:10px">
-        Delete All
-      </button>
+        <el-button type="danger" @click="deleteAll">
+          Delete All
+        </el-button>
+      </div>
     </div>
 
     <p v-if="statusMessage" :style="{ color: statusType === 'success' ? 'green' : 'red', fontWeight: 'bold' }">
@@ -281,19 +283,19 @@ const deleteCollection = async (collectionId: string, collectionName: string) =>
           </span>
 
           <span class="tree-actions">
-            <button
+            <el-button type="success"
               @click="indexCollection(data.id, data.name)"
               :disabled="data.indexed"
             >
               {{ data.indexed ? 'Indexed' : 'Index' }}
-            </button>
+            </el-button>
 
-            <button
+            <el-button type="danger"
               @click="deleteCollection(data.id, data.name)"
               :disabled="!data.indexed"
             >
               Delete
-            </button>
+            </el-button>
           </span>
         </div>
       </template>
@@ -303,6 +305,20 @@ const deleteCollection = async (collectionId: string, collectionName: string) =>
 
 
 <style scoped>
+.navbar {
+  height: 50px;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  background-color: #146472;
+  color: white;
+  font-size: 18px;
+  font-weight: bold;
+  margin-bottom: 16px;
+}
+.navbar-title {
+  user-select: none;
+}
 input {
   margin-right: 10px;
   padding: 5px;
@@ -324,5 +340,8 @@ button {
 .tree-actions {
   display: flex;
   gap: 8px;
+}
+.el-button {
+  min-width: 80px;
 }
 </style>

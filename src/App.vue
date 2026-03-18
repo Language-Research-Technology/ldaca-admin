@@ -326,6 +326,9 @@ input {
 button {
   padding: 5px 10px;
 }
+:deep(.el-tree-node__content) {
+  height: 40px;
+}
 .tree-row {
   display: flex;
   justify-content: space-between;

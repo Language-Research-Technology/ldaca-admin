@@ -123,7 +123,7 @@ const indexAll = async () => {
     )
     const allIds = collections.value.flatMap(getAllIds)
     saveIndexedRepos(allIds)
-    statusMessage.value = 'Indexing started successfully!'
+    statusMessage.value = 'Indexing succeeded!'
     statusType.value = 'success'
     collections.value.forEach(c => c.indexed = true)
   } catch (error) {
@@ -190,7 +190,7 @@ const indexCollection = async (collectionId: string, collectionName: string) => 
       throw new Error('Index failed')
     }
 
-    statusMessage.value = `Indexing started for ${collectionName}!`
+    statusMessage.value = `Indexing succeeded for ${collectionName}!`
     statusType.value = 'success'
     if (collection) {
       markIndexedRecursively(collection, true)

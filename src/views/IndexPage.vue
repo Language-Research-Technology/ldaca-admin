@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import type { FilterNodeMethodFunction } from 'element-plus'
+import type { FilterNodeMethodFunction, TreeNodeData } from 'element-plus'
 import { ElInput, ElTree } from 'element-plus'
 import { ref, watch } from 'vue'
 
-interface Collection {
+interface Collection extends TreeNodeData {
   id: string
   name: string
   path: string
@@ -244,8 +244,7 @@ watch(filterText, (val) => {
   treeRef.value!.filter(val)
 })
 
-const filterNode: FilterNodeMethodFunction = (value: string, data: Collection) => {
-  console.log(value, data.name)
+const filterNode: FilterNodeMethodFunction = (value: string, data: TreeNodeData) => {
   if (!value) return true
   return data.name.search(new RegExp(value, "i")) !== -1
 }

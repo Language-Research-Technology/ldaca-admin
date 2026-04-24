@@ -1,13 +1,14 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { ElTree } from 'element-plus'
+import type { FilterNodeMethodFunction } from 'element-plus'
+import { ElInput, ElTree } from 'element-plus'
+import { ref, watch } from 'vue'
 
 interface Collection {
   id: string
   name: string
   path: string
   indexed?: boolean
-  children?: Collection[]
+  children: Collection[]
 }
 
 const apiBase = import.meta.env.VITE_API_BASE_URL
@@ -16,7 +17,8 @@ const collections = ref<Collection[]>([])
 const errorMessage = ref('')
 const statusMessage = ref('')
 const statusType = ref<'success' | 'error'>('success')
-
+const filterText = ref('')
+const treeRef = ref()
 const getIndexedRepos = (): string[] => {
   const data = localStorage.getItem('indexedRepos')
   return data ? JSON.parse(data) : []
@@ -27,31 +29,31 @@ const saveIndexedRepos = (ids: string[]) => {
 }
 
 const buildTree = (items: Collection[]): Collection[] => {
-  const map = new Map<string, Collection>()
-  const roots: Collection[] = []
+  const map = new Map<string, Collection>(items.map(item => [item.id, { ...item, indexed: false, children: [] }]));
+  const roots: Collection[] = [];
 
-  items.forEach(item => {
-    map.set(item.id, { ...item, children: [] })
-  })
-
-  items.forEach(item => {
-    const parts = item.id.split('/')
-    if (parts.length <= 3) {
-      roots.push(map.get(item.id)!)
-      return
+  for (const [id, item] of map) {
+    const parts = id.split('/');
+    // check for all possible parent paths by popping parts until we find a match in the map
+    let hasParent = false;
+    while (parts.length) {
+      if (!parts.pop()) continue;
+      const parentId = parts.join('/');
+      const parent = map.get(parentId) || map.get(parentId + '/');
+      if (parent) {
+        parent.children.push(item);
+        parent.children.sort();
+        console.log(id, parentId)
+        hasParent = true;
+        break;
+      }
     }
-
-    const parentId = parts.slice(0, -1).join('/')
-    const parent = map.get(parentId)
-
-    if (parent) {
-      parent.children!.push(map.get(item.id)!)
-    } else {
-      roots.push(map.get(item.id)!)
+    if (!hasParent) {
+      roots.push(item);
     }
-  })
-
-  return roots
+  }
+  console.log(roots);
+  return roots.sort();
 }
 
 // Fetch available repos from API
@@ -72,14 +74,14 @@ const fetchCollections = async () => {
     }
 
     const data = await response.json()
-    const indexedRepos = getIndexedRepos()
-    const list = data.map((c: Collection) => ({
-      ...c,
-      indexed: indexedRepos.includes(c.id)
-    }))
+    //const indexedRepos = getIndexedRepos()
+    // const list = data.map((c: Collection) => ({
+    //   ...c,
+    //   indexed: indexedRepos.includes(c.id)
+    // }))
 
-    collections.value = buildTree(list)
-      } catch (error) {
+    collections.value = buildTree(data)
+  } catch (error) {
     errorMessage.value = 'Failed to fetch collections'
     statusType.value = 'success'
   }
@@ -118,7 +120,7 @@ const indexAll = async () => {
       throw new Error('Index failed')
     }
 
-    collections.value.forEach(c => 
+    collections.value.forEach(c =>
       markIndexedRecursively(c, true)
     )
     const allIds = collections.value.flatMap(getAllIds)
@@ -149,7 +151,7 @@ const deleteAll = async () => {
       throw new Error('Delete failed')
     }
 
-    collections.value.forEach(c => 
+    collections.value.forEach(c =>
       markIndexedRecursively(c, false)
     )
     saveIndexedRepos([])
@@ -209,7 +211,7 @@ const indexCollection = async (collectionId: string, collectionName: string) => 
 // Delete specific fetched repos
 const deleteCollection = async (collectionId: string, collectionName: string) => {
   statusMessage.value = ''
-  
+
   try {
     const response = await fetch(`${apiBase}/admin/index/${encodeURIComponent(collectionId)}`, {
       method: 'DELETE',
@@ -231,13 +233,22 @@ const deleteCollection = async (collectionId: string, collectionName: string) =>
       const indexedRepos = getIndexedRepos().filter(id => !allIds.includes(id))
       saveIndexedRepos(indexedRepos)
     }
-    
+
   } catch (error) {
     statusMessage.value = `Delete failed for ${collectionName}!`
     statusType.value = 'error'
   }
 }
 
+watch(filterText, (val) => {
+  treeRef.value!.filter(val)
+})
+
+const filterNode: FilterNodeMethodFunction = (value: string, data: Collection) => {
+  console.log(value, data.name)
+  if (!value) return true
+  return data.name.search(new RegExp(value, "i")) !== -1
+}
 </script>
 
 <template>
@@ -265,36 +276,31 @@ const deleteCollection = async (collectionId: string, collectionName: string) =>
     <p v-if="statusMessage" :style="{ color: statusType === 'success' ? 'green' : 'red', fontWeight: 'bold' }">
       {{ statusMessage }}
     </p>
+    <template v-if="collections.length">
+      <el-input v-model="filterText" class="w-60 mb-2" placeholder="Filter keyword" />
+      <el-tree ref="treeRef" :data="collections" node-key="id" :filter-node-method="filterNode">
+        <template #default="{ data }">
+          <div class="tree-row">
+            <span class="tree-label">
+              {{ data.name }}
+              <span class="tree-label-id">
+                &nbsp; {{ data.id }}
+              </span>
+            </span>
 
-    <el-tree
-      v-if="collections.length"
-      :data="collections"
-      node-key="id"
-    >
-      <template #default="{ data }">
-        <div class="tree-row">
-          <span class="tree-label">
-            {{ data.name }}
-          </span>
+            <span class="tree-actions">
+              <el-button type="success" @click.stop="indexCollection(data.id, data.name)" >
+                {{ data.indexed ? 'Indexed' : 'Index' }}
+              </el-button>
 
-          <span class="tree-actions">
-            <el-button type="success"
-              @click.stop="indexCollection(data.id, data.name)"
-              :disabled="data.indexed"
-            >
-              {{ data.indexed ? 'Indexed' : 'Index' }}
-            </el-button>
-
-            <el-button type="danger"
-              @click.stop="deleteCollection(data.id, data.name)"
-              :disabled="!data.indexed"
-            >
-              Delete
-            </el-button>
-          </span>
-        </div>
-      </template>
-    </el-tree>
+              <el-button type="danger" @click.stop="deleteCollection(data.id, data.name)" >
+                Delete
+              </el-button>
+            </span>
+          </div>
+        </template>
+      </el-tree>
+    </template>
   </div>
 </template>
 
@@ -305,6 +311,7 @@ const deleteCollection = async (collectionId: string, collectionName: string) =>
   margin: 0 auto;
   padding: 0 16px;
 }
+
 .navbar {
   height: 50px;
   display: flex;
@@ -316,19 +323,24 @@ const deleteCollection = async (collectionId: string, collectionName: string) =>
   font-weight: bold;
   margin-bottom: 16px;
 }
+
 .navbar-title {
   user-select: none;
 }
+
 input {
   margin-right: 10px;
   padding: 5px;
 }
+
 button {
   padding: 5px 10px;
 }
+
 :deep(.el-tree-node__content) {
   height: 40px;
 }
+
 .tree-row {
   display: flex;
   justify-content: space-between;
@@ -340,10 +352,16 @@ button {
   flex: 1;
 }
 
+.tree-label-id {
+  color: #999;
+  font-size: 0.9em;
+}
+
 .tree-actions {
   display: flex;
   gap: 8px;
 }
+
 .el-button {
   min-width: 80px;
 }
